@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { TrendingUp, Zap, Shield, Users } from 'lucide-react'
 
@@ -10,19 +10,49 @@ export default function Login() {
   const [success, setSuccess] = useState('')
   const [mode, setMode] = useState('login')
 
+  // Clear any auth errors from URL on mount
+  useEffect(() => {
+    const hash = window.location.hash
+    if (hash && hash.includes('error')) {
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [])
+
   const handleSubmit = async () => {
     setLoading(true)
     setError('')
     setSuccess('')
-    if (!email || !password) { setError('Please fill in all fields'); setLoading(false); return }
+
+    if (!email || !password) {
+      setError('Please fill in all fields')
+      setLoading(false)
+      return
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      setLoading(false)
+      return
+    }
 
     if (mode === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setError(error.message)
     } else {
-      const { error } = await supabase.auth.signUp({ email, password })
-      if (error) setError(error.message)
-      else setSuccess('Account created! Check your email to verify, then login.')
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: 'https://aitrademaster.netlify.app'
+        }
+      })
+      if (error) {
+        setError(error.message)
+      } else if (data?.user?.identities?.length === 0) {
+        setError('Email already registered. Please sign in instead.')
+      } else {
+        setSuccess('Account created! You can now sign in directly.')
+      }
     }
     setLoading(false)
   }
@@ -91,7 +121,7 @@ export default function Login() {
             <input
               className="form-input"
               type="password"
-              placeholder="••••••••"
+              placeholder="Min 6 characters"
               value={password}
               onChange={e => setPassword(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
