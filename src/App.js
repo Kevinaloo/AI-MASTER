@@ -15,10 +15,17 @@ export default function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Clean any error params from URL immediately on load
+    const url = new URL(window.location.href)
+    if (url.hash || url.searchParams.get('error')) {
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setLoading(false)
     })
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
     })
@@ -47,6 +54,7 @@ export default function App() {
           <Route path="predictions" element={<Predictions session={session} />} />
           <Route path="wallet" element={<Wallet session={session} />} />
         </Route>
+        <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </Router>
   )
