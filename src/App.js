@@ -8,40 +8,35 @@ import Predictions from './pages/Predictions'
 import Wallet from './pages/Wallet'
 import Signals from './pages/Signals'
 import Layout from './components/Layout'
+import BrandingSplash from './components/BrandingSplash'
 import './App.css'
 
 export default function App() {
-  const [session, setSession] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [session, setSession]       = useState(null)
+  const [loading, setLoading]       = useState(true)
+  const [showSplash, setShowSplash] = useState(true)
 
   useEffect(() => {
-    // Clean any error params from URL immediately on load
     const url = new URL(window.location.href)
     if (url.hash || url.searchParams.get('error')) {
       window.history.replaceState(null, '', window.location.pathname)
     }
-
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setLoading(false)
     })
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
     })
     return () => subscription.unsubscribe()
   }, [])
 
-  if (loading) return (
-    <div className="splash">
-      <div className="splash-inner">
-        <div className="logo-mark">A</div>
-        <h1>AkiliTrade</h1>
-        <div className="loader-bar"><div className="loader-fill"></div></div>
-        <p>Akili ya Kenya, Faida ya Kweli</p>
-      </div>
-    </div>
-  )
+  // Show splash on every load
+  if (showSplash) {
+    return <BrandingSplash onComplete={() => setShowSplash(false)} />
+  }
+
+  if (loading) return null
 
   return (
     <Router>
