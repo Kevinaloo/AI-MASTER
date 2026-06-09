@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { TrendingUp, TrendingDown, Zap, Target, ArrowUpRight } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useNavigate } from 'react-router-dom'
+import ReferralPopup from '../components/ReferralPopup'
 
 const TICKER_DATA = [
   { symbol: 'BTC/USDT', price: '67,432.10', change: '+2.4%', up: true },
@@ -37,17 +38,27 @@ export default function Dashboard({ session }) {
   const [signals, setSignals] = useState([])
   const [trades, setTrades] = useState([])
   const [wallet, setWallet] = useState(null)
+  const [showReferral, setShowReferral] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
     fetchData()
+
+    // Show referral popup every time user visits dashboard
+    // Small delay so dashboard loads first
+    const timer = setTimeout(() => setShowReferral(true), 1500)
+
     const channel = supabase
       .channel('signals')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'signals' }, payload => {
         setSignals(prev => [payload.new, ...prev].slice(0, 5))
       })
       .subscribe()
-    return () => supabase.removeChannel(channel)
+
+    return () => {
+      supabase.removeChannel(channel)
+      clearTimeout(timer)
+    }
   }, [])
 
   const fetchData = async () => {
@@ -65,6 +76,14 @@ export default function Dashboard({ session }) {
 
   return (
     <div>
+      {/* Referral Popup */}
+      {showReferral && (
+        <ReferralPopup
+          session={session}
+          onClose={() => setShowReferral(false)}
+        />
+      )}
+
       <div className="page-header">
         <h1>Dashboard</h1>
         <p>Habari za masoko ya leo — {new Date().toLocaleDateString('en-KE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
@@ -106,7 +125,7 @@ export default function Dashboard({ session }) {
         <div className="stat-card red">
           <div className="stat-label">AI Signals Today</div>
           <div className="stat-value" style={{ color: 'var(--blue)' }}>{signals.length}</div>
-          <div className="stat-change"><span className="live-dot" style={{ marginRight: 4 }}></span> Live updating</div>
+          <div className="stat-change"><span className="live-dot" style={{ marginRight: 4 }}></span>Live updating</div>
         </div>
       </div>
 
@@ -178,10 +197,7 @@ export default function Dashboard({ session }) {
         ) : (
           <table className="data-table">
             <thead>
-              <tr>
-                <th>Symbol</th><th>Type</th><th>Market</th>
-                <th>Amount (KSh)</th><th>Profit</th><th>Status</th>
-              </tr>
+              <tr><th>Symbol</th><th>Type</th><th>Market</th><th>Amount (KSh)</th><th>Profit</th><th>Status</th></tr>
             </thead>
             <tbody>
               {trades.map(t => (
