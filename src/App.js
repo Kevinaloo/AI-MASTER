@@ -14,7 +14,10 @@ import './App.css'
 export default function App() {
   const [session, setSession]       = useState(null)
   const [loading, setLoading]       = useState(true)
-  const [showSplash, setShowSplash] = useState(true)
+  // Only show splash on very first load of the browser tab
+  const [showSplash, setShowSplash] = useState(() => {
+    return !sessionStorage.getItem('splashShown')
+  })
 
   useEffect(() => {
     const url = new URL(window.location.href)
@@ -31,9 +34,15 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Show splash on every load
+  const handleSplashComplete = () => {
+    // Mark splash as shown for this browser session
+    sessionStorage.setItem('splashShown', 'true')
+    setShowSplash(false)
+  }
+
+  // Show splash only on first load
   if (showSplash) {
-    return <BrandingSplash onComplete={() => setShowSplash(false)} />
+    return <BrandingSplash onComplete={handleSplashComplete} />
   }
 
   if (loading) return null
