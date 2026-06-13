@@ -1,18 +1,18 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import {
   LayoutDashboard, TrendingUp, Zap,
   Target, Wallet, LogOut, Bell,
-  Settings, ChevronRight
+  Menu, X, ChevronRight
 } from 'lucide-react'
 
 const NAV = [
-  { to: '/',            label: 'Dashboard',   icon: LayoutDashboard, end: true },
-  { to: '/signals',     label: 'AI Signals',  icon: Zap,             badge: 'LIVE' },
-  { to: '/trades',      label: 'My Trades',   icon: TrendingUp },
-  { to: '/predictions', label: 'Predictions', icon: Target },
-  { to: '/wallet',      label: 'Wallet',      icon: Wallet },
+  { to:'/',            label:'Dashboard',   icon:LayoutDashboard, end:true },
+  { to:'/signals',     label:'AI Signals',  icon:Zap,             badge:'LIVE' },
+  { to:'/trades',      label:'My Trades',   icon:TrendingUp },
+  { to:'/predictions', label:'Predictions', icon:Target },
+  { to:'/wallet',      label:'Wallet',      icon:Wallet },
 ]
 
 const TICKER = [
@@ -27,39 +27,96 @@ const TICKER = [
 ]
 
 export default function Layout({ session }) {
-  const navigate  = useNavigate()
-  const location  = useLocation()
-  const email     = session?.user?.email || ''
-  const initials  = email.slice(0,2).toUpperCase()
+  const navigate      = useNavigate()
+  const location      = useLocation()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const email    = session?.user?.email || ''
+  const initials = email.slice(0,2).toUpperCase()
+
+  // Close sidebar on route change
+  useEffect(() => { setSidebarOpen(false) }, [location.pathname])
+
+  // Close sidebar on outside click
+  useEffect(() => {
+    if (!sidebarOpen) return
+    const handler = (e) => {
+      if (!e.target.closest('.sidebar') && !e.target.closest('.menu-btn')) {
+        setSidebarOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [sidebarOpen])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
     navigate('/login')
   }
 
-  const currentPage = NAV.find(n => n.end ? location.pathname === n.to : location.pathname.startsWith(n.to))
+  const currentPage = NAV.find(n =>
+    n.end ? location.pathname === n.to : location.pathname.startsWith(n.to)
+  )
 
   return (
     <div className="layout">
+      <style>{`
+        @media (max-width: 900px) {
+          .sidebar { transform: translateX(-240px) !important; }
+          .sidebar.open { transform: translateX(0) !important; }
+          .sidebar-overlay { display: block !important; }
+        }
+        .sidebar-overlay {
+          display: none;
+          position: fixed; inset: 0; z-index: 199;
+          background: rgba(0,0,0,0.6);
+          backdrop-filter: blur(2px);
+        }
+      `}</style>
+
+      {/* Sidebar overlay (mobile) */}
+      {sidebarOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* ── SIDEBAR ── */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         {/* Brand */}
         <div className="sidebar-logo">
           <div className="sidebar-brand-icon">
             <img src="/logo.png" alt="Bulls & Wolves"
-              onError={e => { e.target.parentElement.style.background='var(--gold-glow)'; e.target.style.display='none' }} />
+              onError={e => {
+                e.target.parentElement.style.background = 'var(--gold-glow)'
+                e.target.style.display = 'none'
+              }} />
           </div>
-          <div className="sidebar-brand-text">
+          <div style={{ flex:1, minWidth:0 }}>
             <div className="sidebar-brand-name">BULLS & WOLVES</div>
             <div className="sidebar-brand-sub">AI Trading</div>
           </div>
+          {/* Close button on mobile */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              display:'none', background:'none', border:'none',
+              color:'var(--text-muted)', cursor:'pointer', padding:4,
+              borderRadius:6, flexShrink:0,
+            }}
+            className="sidebar-close-btn">
+            <X size={16}/>
+          </button>
         </div>
 
-        {/* Nav */}
-        <div style={{ flex:1, overflowY:'auto', padding:'8px 0' }}>
+        {/* Nav links */}
+        <div style={{ flex:1, overflowY:'auto', overflowX:'hidden', padding:'8px 0' }}>
           <div className="nav-section-label">Main Menu</div>
-          {NAV.map(({ to, label, icon: Icon, end, badge }) => (
+          {NAV.map(({ to, label, icon:Icon, end, badge }) => (
             <NavLink key={to} to={to} end={end}
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
               <Icon size={15} />
@@ -68,31 +125,24 @@ export default function Layout({ session }) {
             </NavLink>
           ))}
 
-          <div className="sidebar-divider" style={{ margin:'12px 18px' }} />
+          <div className="sidebar-divider" style={{ margin:'12px 18px' }}/>
           <div className="nav-section-label">Account</div>
 
-          <button className="nav-item" style={{ width:'100%', border:'none', background:'none', cursor:'pointer', textAlign:'left' }}
-            onClick={() => {}}>
-            <Bell size={15} />
-            Notifications
-          </button>
-          <button className="nav-item" style={{ width:'100%', border:'none', background:'none', cursor:'pointer', textAlign:'left' }}
-            onClick={() => {}}>
-            <Settings size={15} />
-            Settings
+          <button className="nav-item" onClick={() => {}}>
+            <Bell size={15}/> Notifications
           </button>
         </div>
 
-        {/* User */}
+        {/* User card */}
         <div className="sidebar-bottom">
-          <div className="user-card" onClick={handleLogout} title="Click to logout">
+          <div className="user-card">
             <div className="user-avatar">{initials}</div>
             <div className="user-info">
               <div className="user-name">{email}</div>
               <div className="user-role">🐺 Pack Member</div>
             </div>
-            <button className="logout-btn" onClick={handleLogout}>
-              <LogOut size={14} />
+            <button className="logout-btn" onClick={handleLogout} title="Logout">
+              <LogOut size={14}/>
             </button>
           </div>
         </div>
@@ -101,26 +151,43 @@ export default function Layout({ session }) {
       {/* ── MAIN ── */}
       <main className="main-content">
 
-        {/* Top bar */}
+        {/* Topbar */}
         <div className="topbar">
-          <div className="topbar-left">
-            <div className="topbar-title">
-              {currentPage?.label || 'Dashboard'}
-            </div>
-            <ChevronRight size={13} style={{ color:'var(--text-muted)' }} />
-            <span style={{ fontSize:11, color:'var(--text-muted)' }}>
-              {new Date().toLocaleDateString('en-KE', { weekday:'short', month:'short', day:'numeric' })}
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            {/* Hamburger — mobile only */}
+            <button
+              className="menu-btn"
+              onClick={() => setSidebarOpen(s => !s)}
+              style={{
+                display:'none',
+                background:'none', border:'1px solid var(--border)',
+                color:'var(--text-secondary)', cursor:'pointer',
+                padding:'6px 8px', borderRadius:8,
+                alignItems:'center', justifyContent:'center',
+              }}>
+              <Menu size={17}/>
+            </button>
+
+            <div className="topbar-title">{currentPage?.label || 'Dashboard'}</div>
+            <ChevronRight size={13} style={{ color:'var(--text-muted)', flexShrink:0 }}/>
+            <span style={{ fontSize:11, color:'var(--text-muted)', whiteSpace:'nowrap' }}>
+              {new Date().toLocaleDateString('en-KE',{weekday:'short',month:'short',day:'numeric'})}
             </span>
           </div>
+
           <div className="topbar-right">
-            <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px',
+            <div style={{
+              display:'flex', alignItems:'center', gap:6,
+              padding:'5px 10px',
               background:'var(--bg-raised)', border:'1px solid var(--border)',
-              borderRadius:'var(--radius-sm)', fontSize:11, color:'var(--text-muted)' }}>
-              <span className="live-dot" />
-              Markets Open
+              borderRadius:6, fontSize:11, color:'var(--text-muted)',
+              whiteSpace:'nowrap',
+            }}>
+              <span className="live-dot"/>
+              Markets Live
             </div>
             <button className="btn-icon btn-ghost">
-              <Bell size={15} />
+              <Bell size={15}/>
             </button>
           </div>
         </div>
@@ -140,25 +207,36 @@ export default function Layout({ session }) {
 
         {/* Page content */}
         <div className="page-body">
-          <Outlet />
+          <Outlet/>
         </div>
       </main>
 
-      {/* ── MOBILE NAV ── */}
+      {/* ── MOBILE BOTTOM NAV ── */}
       <nav className="mobile-nav">
         <div className="mobile-nav-items">
-          {NAV.map(({ to, label, icon: Icon, end }) => {
-            const active = end ? location.pathname === to : location.pathname.startsWith(to)
+          {NAV.map(({ to, label, icon:Icon, end }) => {
+            const active = end
+              ? location.pathname === to
+              : location.pathname.startsWith(to)
             return (
-              <button key={to} className={`mobile-nav-item ${active?'active':''}`}
+              <button key={to}
+                className={`mobile-nav-item ${active?'active':''}`}
                 onClick={() => navigate(to)}>
-                <Icon size={18} />
+                <Icon size={18}/>
                 {label.split(' ')[0]}
               </button>
             )
           })}
         </div>
       </nav>
+
+      {/* CSS to show hamburger + sidebar close on mobile */}
+      <style>{`
+        @media (max-width: 900px) {
+          .menu-btn { display: flex !important; }
+          .sidebar-close-btn { display: flex !important; }
+        }
+      `}</style>
     </div>
   )
 }
